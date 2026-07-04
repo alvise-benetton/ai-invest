@@ -1,0 +1,30 @@
+name: "📊 Aegis Momentum — Weekly Rebalance"
+
+on:
+  schedule:
+    # Ogni venerdì alle 20:30 UTC = 22:30 CEST (post chiusura NYSE)
+    - cron: "30 20 * * 5"
+  workflow_dispatch: # Permette esecuzione manuale dal tab Actions
+
+jobs:
+  rebalance:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Per committare portfolio.json aggiornato
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: 📊 Run Aegis Momentum
+        run: uv run aegis_momentum.py
+
+      - name: 💾 Commit updated portfolio
+        run: |
+          git config user.name "Aegis Momentum Bot"
+          git config user.email "bot@aegis-momentum"
+          git add portfolio.json
+          git diff --staged --quiet || git commit -m "📊 Weekly rebalance — $(date -u +%Y-%m-%d)"
+          git push

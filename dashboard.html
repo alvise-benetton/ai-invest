@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis Momentum — Dashboard</title>
+    <meta name="description" content="Dashboard di gestione patrimoniale simulata basata su Dual Momentum potenziato con inverse-volatility weighting.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        /* ═══════════════════════════════════════════════════════════
+           Design System
+           ═══════════════════════════════════════════════════════════ */
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-card-hover: rgba(30, 41, 59, 0.8);
+            --border: rgba(99, 102, 241, 0.15);
+            --border-hover: rgba(99, 102, 241, 0.35);
+
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            --accent-indigo: #818cf8;
+            --accent-violet: #a78bfa;
+            --accent-emerald: #34d399;
+            --accent-rose: #fb7185;
+            --accent-amber: #fbbf24;
+            --accent-sky: #38bdf8;
+
+            --gradient-hero: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-green: linear-gradient(135deg, #34d399 0%, #059669 100%);
+            --gradient-red: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+            --gradient-card: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.04) 100%);
+
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 20px rgba(0,0,0,0.4);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.5);
+            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background ambient glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ═══ Layout ═══ */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ═══ Header ═══ */
+        .header {
+            padding: 40px 0 32px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-hero);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo p {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.live {
+            background: rgba(52, 211, 153, 0.12);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(52, 211, 153, 0.25);
+        }
+
+        .status-badge.live::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+        }
+
+        .last-update {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ═══ KPI Grid ═══ */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-hero);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .kpi-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .kpi-card:hover::before { opacity: 1; }
+
+        .kpi-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.2;
+        }
+
+        .kpi-value.positive { color: var(--accent-emerald); }
+        .kpi-value.negative { color: var(--accent-rose); }
+        .kpi-value.neutral { color: var(--text-primary); }
+
+        .kpi-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ═══ Charts Section ═══ */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        @media (max-width: 900px) {
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            transition: border-color 0.3s;
+        }
+
+        .card:hover { border-color: var(--border-hover); }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon { font-size: 16px; }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .chart-container.line { height: 300px; }
+        .chart-container.doughnut { height: 280px; }
+
+        /* ═══ Momentum Table ═══ */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 32px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+        }
+
+        thead th {
+            background: rgba(99, 102, 241, 0.06);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+        }
+
+        thead th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+        thead th:last-child { border-radius: 0 var(--radius-sm) 0 0; }
+
+        tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover td { background: rgba(99, 102, 241, 0.04); }
+
+        .ticker-cell {
+            font-weight: 700;
+            color: var(--accent-indigo);
+        }
+
+        .name-cell {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .ret-positive { color: var(--accent-emerald); }
+        .ret-negative { color: var(--accent-rose); }
+
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .rank-badge.top { background: var(--gradient-hero); color: white; }
+        .rank-badge.normal { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+
+        /* ═══ Trade Log ═══ */
+        .trade-log {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .trade-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+        }
+
+        .trade-item:last-child { border-bottom: none; }
+
+        .trade-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .trade-icon.buy { background: rgba(52, 211, 153, 0.12); }
+        .trade-icon.sell { background: rgba(251, 113, 133, 0.12); }
+
+        .trade-details { flex: 1; min-width: 0; }
+
+        .trade-ticker {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .trade-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .trade-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .trade-value.buy { color: var(--accent-emerald); }
+        .trade-value.sell { color: var(--accent-rose); }
+
+        /* ═══ Footer ═══ */
+        .footer {
+            padding: 32px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 32px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .footer a {
+            color: var(--accent-indigo);
+            text-decoration: none;
+        }
+
+        /* ═══ Loading State ═══ */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 0;
+            gap: 16px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-indigo);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--accent-rose);
+        }
+
+        .error-state h2 { margin-bottom: 8px; }
+        .error-state p { color: var(--text-muted); }
+
+        /* ═══ Scrollbar ═══ */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.4); }
+
+        /* ═══ Responsive ═══ */
+        @media (max-width: 640px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .kpi-value { font-size: 22px; }
+            .header-top { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="color: var(--text-muted);">Caricamento dati del portafoglio...</p>
+        </div>
+    </div>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════
+    // Aegis Momentum Dashboard — Main Script
+    // ═══════════════════════════════════════════════════════════════
+
+    const COLORS = {
+        indigo: '#818cf8',
+        violet: '#a78bfa',
+        emerald: '#34d399',
+        rose: '#fb7185',
+        amber: '#fbbf24',
+        sky: '#38bdf8',
+        teal: '#2dd4bf',
+        orange: '#fb923c',
+    };
+
+    const CHART_COLORS = [
+        COLORS.indigo, COLORS.emerald, COLORS.violet,
+        COLORS.amber, COLORS.sky, COLORS.rose,
+        COLORS.teal, COLORS.orange,
+    ];
+
+    // Chart.js global defaults
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(99, 102, 241, 0.08)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    async function loadPortfolio() {
+        try {
+            const resp = await fetch('portfolio.json');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return await resp.json();
+        } catch (e) {
+            console.error('Errore nel caricamento del portfolio:', e);
+            return null;
+        }
+    }
+
+    function formatCurrency(val) {
+        return '$' + val.toFixed(2);
+    }
+
+    function formatPercent(val) {
+        const sign = val >= 0 ? '+' : '';
+        return sign + (val * 100).toFixed(2) + '%';
+    }
+
+    function formatDate(dateStr) {
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch {
+            return dateStr;
+        }
+    }
+
+    function getRetClass(val) {
+        return val >= 0 ? 'ret-positive' : 'ret-negative';
+    }
+
+    function getValueClass(val) {
+        if (val > 0) return 'positive';
+        if (val < 0) return 'negative';
+        return 'neutral';
+    }
+
+    function render(data) {
+        const app = document.getElementById('app');
+
+        const valueHistory = data.value_history || [];
+        const currentValue = valueHistory.length > 0 ? valueHistory[valueHistory.length - 1].value : data.cash;
+        const initialValue = 100;
+        const totalReturn = (currentValue - initialValue) / initialValue;
+        const peakValue = data.peak_value || currentValue;
+        const maxDrawdown = peakValue > 0 ? (currentValue - peakValue) / peakValue : 0;
+        const holdings = data.holdings || [];
+        const scores = data.last_scores || [];
+        const trades = (data.trade_history || []).slice().reverse();
+        const lastRun = data.last_run || '';
+
+        // Days active
+        let daysActive = 1;
+        if (data.created_at) {
+            const created = new Date(data.created_at);
+            daysActive = Math.max(1, Math.floor((Date.now() - created) / 86400000));
+        }
+        const annReturn = daysActive > 1 ? Math.pow(1 + totalReturn, 365 / daysActive) - 1 : 0;
+
+        // Cash percentage
+        const cashPct = currentValue > 0 ? data.cash / currentValue : 1;
+
+        app.innerHTML = `
+            <!-- Header -->
+            <header class="header">
+                <div class="header-top">
+                    <div class="logo">
+                        <div class="logo-icon">⚡</div>
+                        <div>
+                            <h1>Aegis Momentum</h1>
+                            <p>Dual Momentum Potenziato · Gestione Patrimoniale Simulata</p>
+                        </div>
+                    </div>
+                    <div class="header-meta">
+                        <span class="status-badge live">Attivo</span>
+                        <span class="last-update" id="last-update">${lastRun ? 'Ultimo run: ' + formatDate(lastRun) : ''}</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">💰 Valore Portafoglio</div>
+                    <div class="kpi-value neutral">${formatCurrency(currentValue)}</div>
+                    <div class="kpi-sub">Iniziale: ${formatCurrency(initialValue)}</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">📈 Rendimento Totale</div>
+                    <div class="kpi-value ${getValueClass(totalReturn)}">${formatPercent(totalReturn)}</div>
+                    <div class="kpi-sub">Ann.: ${formatPercent(annReturn)}</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">📉 Max Drawdown</div>
+                    <div class="kpi-value ${maxDrawdown < -0.05 ? 'negative' : 'neutral'}">${formatPercent(maxDrawdown)}</div>
+                    <div class="kpi-sub">Picco: ${formatCurrency(peakValue)}</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">💵 Cash Disponibile</div>
+                    <div class="kpi-value neutral">${formatCurrency(data.cash)}</div>
+                    <div class="kpi-sub">${(cashPct * 100).toFixed(1)}% del portafoglio</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title"><span class="icon">📊</span> Valore nel Tempo</div>
+                    <div class="chart-container line">
+                        <canvas id="valueChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title"><span class="icon">🎯</span> Allocazione Attuale</div>
+                    <div class="chart-container doughnut">
+                        <canvas id="allocChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Momentum Rankings -->
+            <div class="card" style="margin-bottom: 32px;">
+                <div class="card-title"><span class="icon">🏆</span> Classifica Momentum — Tutti gli ETF</div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Ticker</th>
+                                <th>Nome</th>
+                                <th>3 Mesi</th>
+                                <th>6 Mesi</th>
+                                <th>12 Mesi</th>
+                                <th>Score</th>
+                                <th>Vol.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${scores.map((s, i) => `
+                                <tr>
+                                    <td><span class="rank-badge ${i < 3 ? 'top' : 'normal'}">${s.rank || i+1}</span></td>
+                                    <td class="ticker-cell">${s.ticker}</td>
+                                    <td class="name-cell">${s.name || s.ticker}</td>
+                                    <td class="${getRetClass(s.ret_3m)}">${formatPercent(s.ret_3m)}</td>
+                                    <td class="${getRetClass(s.ret_6m)}">${formatPercent(s.ret_6m)}</td>
+                                    <td class="${getRetClass(s.ret_12m)}">${formatPercent(s.ret_12m)}</td>
+                                    <td class="${getRetClass(s.adj_score)}">${s.adj_score >= 0 ? '+' : ''}${s.adj_score.toFixed(3)}</td>
+                                    <td>${(s.volatility * 100).toFixed(1)}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Trade Log -->
+            <div class="card">
+                <div class="card-title"><span class="icon">📋</span> Cronologia Operazioni</div>
+                <div class="trade-log">
+                    ${trades.length === 0 ? '<p style="color: var(--text-muted); padding: 20px 0;">Nessuna operazione registrata.</p>' :
+                    trades.slice(0, 30).map(t => `
+                        <div class="trade-item">
+                            <div class="trade-icon ${t.action.toLowerCase()}">${t.action === 'BUY' ? '📥' : '📤'}</div>
+                            <div class="trade-details">
+                                <div class="trade-ticker">${t.action === 'BUY' ? 'Acquisto' : 'Vendita'} ${t.ticker}</div>
+                                <div class="trade-meta">
+                                    <span>${formatDate(t.date)}</span>
+                                    <span>·</span>
+                                    <span>${t.quantity.toFixed(4)} quote @ $${t.price.toFixed(2)}</span>
+                                    ${t.reason ? `<span>· ${t.reason}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="trade-value ${t.action.toLowerCase()}">${t.action === 'BUY' ? '-' : '+'}${formatCurrency(t.value)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>Aegis Momentum — Simulazione didattica · Non costituisce consulenza finanziaria</p>
+                <p style="margin-top: 4px;">Basato su Dual Momentum (Antonacci, 2014) · Dati da Yahoo Finance via yfinance</p>
+            </footer>
+        `;
+
+        // ── Value Chart ──
+        if (valueHistory.length > 0) {
+            const ctx1 = document.getElementById('valueChart').getContext('2d');
+            const gradient = ctx1.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+            gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: valueHistory.map(v => v.date),
+                    datasets: [{
+                        label: 'Valore ($)',
+                        data: valueHistory.map(v => v.value),
+                        borderColor: COLORS.indigo,
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: valueHistory.length > 20 ? 0 : 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: COLORS.indigo,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                            borderColor: 'rgba(99, 102, 241, 0.3)',
+                            borderWidth: 1,
+                            padding: 12,
+                            titleFont: { weight: '600' },
+                            callbacks: {
+                                label: ctx => formatCurrency(ctx.parsed.y)
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 8, font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(99,102,241,0.06)' },
+                            ticks: {
+                                font: { size: 11 },
+                                callback: v => '$' + v.toFixed(0)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ── Allocation Doughnut ──
+        const allocLabels = [];
+        const allocValues = [];
+        const allocColors = [];
+
+        holdings.forEach((h, i) => {
+            allocLabels.push(h.ticker);
+            allocValues.push(h.quantity * (h.buy_price || 0)); // Approximate
+            allocColors.push(CHART_COLORS[i % CHART_COLORS.length]);
+        });
+
+        if (data.cash > 0.5) {
+            allocLabels.push('Cash');
+            allocValues.push(data.cash);
+            allocColors.push('#475569');
+        }
+
+        if (allocValues.length > 0) {
+            const ctx2 = document.getElementById('allocChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: allocLabels,
+                    datasets: [{
+                        data: allocValues,
+                        backgroundColor: allocColors,
+                        borderColor: 'rgba(10, 14, 23, 0.8)',
+                        borderWidth: 3,
+                        hoverOffset: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 16,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                font: { size: 12, weight: '500' }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                            borderColor: 'rgba(99, 102, 241, 0.3)',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: ctx => {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                    return ` ${ctx.label}: ${formatCurrency(ctx.parsed)} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // ── Init ──
+    (async function() {
+        const data = await loadPortfolio();
+        if (!data) {
+            document.getElementById('app').innerHTML = `
+                <div class="error-state">
+                    <h2>⚠️ Portfolio non trovato</h2>
+                    <p>Impossibile caricare <code>portfolio.json</code>. Esegui prima il bot con <code>uv run aegis_momentum.py</code></p>
+                </div>
+            `;
+            return;
+        }
+        render(data);
+    })();
+    </script>
+</body>
+</html>
