@@ -101,9 +101,18 @@ class MarketDataProvider:
         self.lookback_months = lookback_months
         self._prices: pd.DataFrame | None = None
         self._returns: pd.DataFrame | None = None
+        self._is_mocked = False
+
+    def set_data_slice(self, prices: pd.DataFrame, returns: pd.DataFrame) -> None:
+        """Inietta dati storici troncati (usato per il backtesting)."""
+        self._prices = prices
+        self._returns = returns
+        self._is_mocked = True
 
     def fetch(self) -> None:
         """Scarica i prezzi di chiusura aggiustati per tutti i ticker."""
+        if self._is_mocked:
+            return  # Bypass se i dati sono stati iniettati
         import os
         # Workaround: disabilita il cookie consent check di yfinance
         # che può fallire in ambienti con restrizioni di rete
@@ -282,23 +291,27 @@ class PortfolioAllocator:
         # 1. Selezione Top-N
         top_n = self.scores.head(TOP_N).copy()
         print(f"\n🏆 Top {TOP_N} per momentum score (vol-adjusted):")
-        for _, row in top_n.iterrows():
-            print(f"   #{int(row['rank'])} {row['ticker']:5s} | Score: {row['adj_score']:+.4f} | "
-                  f"3m: {row['ret_3m']:+.1%} | 6m: {row['ret_6m']:+.1%} | 12m: {row['ret_12m']:+.1%}")
-
-        # 2. Filtro Momentum Assoluto
-        # Confronta il rendimento a 12m di ogni top-N con BIL (T-Bill)
+        # Trova il rendimento di BIL per il filtro assoluto
         bil_ret = 0.0
         if CASH_PROXY in self.scores["ticker"].values:
             bil_row = self.scores[self.scores["ticker"] == CASH_PROXY]
             if not bil_row.empty:
                 bil_ret = bil_row.iloc[0]["ret_12m"]
 
+        # Escludi CASH_PROXY dalla selezione degli asset investibili
+        investable_scores = self.scores[self.scores["ticker"] != CASH_PROXY]
+
+        # 1. Selezione Top-N
+        top_n = investable_scores.head(TOP_N).copy()
+        print(f"\n🏆 Top {TOP_N} per momentum score (vol-adjusted):")
+        for _, row in top_n.iterrows():
+            print(f"   #{int(row['rank'])} {row['ticker']:5s} | Score: {row['adj_score']:+.4f} | "
+                  f"3m: {row['ret_3m']:+.1%} | 6m: {row['ret_6m']:+.1%} | 12m: {row['ret_12m']:+.1%}")
+
+        # 2. Filtro Momentum Assoluto
         selected = {}
         for _, row in top_n.iterrows():
             ticker = row["ticker"]
-            if ticker == CASH_PROXY:
-                continue  # Non selezionare BIL come asset attivo
             if row["ret_12m"] > bil_ret:
                 selected[ticker] = row["volatility"]
                 print(f"   ✅ {ticker} passa il filtro assoluto (12m: {row['ret_12m']:+.1%} > BIL: {bil_ret:+.1%})")
